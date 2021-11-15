@@ -65,46 +65,88 @@ defmodule ToyRobot do
   indication for the presence of obstacle ahead of robot's current position and facing.
   """
   def stop(robot, goal_x, goal_y, cli_proc_name) do
+    pid=spawn(fn->listen_from_server() end)
+    Process.register(pid,:client_toyrobot)
+
+    send_robot_status(robot,cli_proc_name)
+    listen_from_server()
     %ToyRobot.Position{x: x, y: y, facing: facing} = robot
 
     robot=face(robot,y,goal_y)
 
-    robot=move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+    #0 is normal 1 indicates change of course bcz of obstacle
+    {robot,flag}=move_v(x,y,goal_x,goal_y,robot,cli_proc_name,0)
     %ToyRobot.Position{x: x, y: y, facing: facing} = robot
 
     robot=turn(robot,x,goal_x,facing)
     %ToyRobot.Position{x: x, y: y, facing: facing} = robot
 
-    robot=move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
+    {robot,flag}=move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
     %ToyRobot.Position{facing: facing, x: x, y: y} = robot
 
     {:ok,robot}
   end
 
-  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name) when y==goal_y do
+  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name,flag) when y==goal_y do
     send_robot_status(robot,cli_proc_name)
-    robot
+    {robot,flag}
   end
 
-  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name) do
-    send_robot_status(robot,cli_proc_name)
+  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name,flag) when x!=goal_x do
+    if send_robot_status(robot,cli_proc_name) do
+      #turn
+      IO.puts("Obstacle")
+      move_h(x,y,goal_x,goal_y,robot,cli_proc_name,1)
+    end
+
     robot=move(robot)
     %ToyRobot.Position{x: _x, y: y, facing: _facing} = robot
-    move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+    move_v(x,y,goal_x,goal_y,robot,cli_proc_name,flag)
   end
 
-  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name) when x==goal_x do
+  # def move_v(x,y,goal_x,goal_y,robot,cli_proc_name) when x==goal_x do
+  #   if send_robot_status(robot,cli_proc_name) do
+  #     IO.puts("Obstacle")
+  #     #turn right
+  #     #move
+  #     #turn left
+  #     #move
+  #     #turn left
+  #     #move
+  #     #turn right
+  #   end
+
+  #   robot=move(robot)
+  #   %ToyRobot.Position{x: _x, y: y, facing: _facing} = robot
+  #   move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+  # end
+
+  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name,flag) when x==goal_x do
     send_robot_status(robot,cli_proc_name)
-    robot
+    {robot,flag}
   end
 
-  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name) do
-    IO.puts("#{send_robot_status(robot,cli_proc_name)}")
-      # move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name,flag) when y!=goal_y do
+    if send_robot_status(robot,cli_proc_name) do
+      #turn
+      IO.puts("Obstacle")
+      move_v(x,y,goal_x,goal_y,robot,cli_proc_name,flag)
+    end
+
     robot=move(robot)
     %ToyRobot.Position{x: x, y: _y, facing: _facing} = robot
-    move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
+    move_h(x,y,goal_x,goal_y,robot,cli_proc_name,flag)
   end
+
+  # def move_h(x,y,goal_x,goal_y,robot,cli_proc_name) when y==goal_y do
+  #   if send_robot_status(robot,cli_proc_name) do
+  #     IO.puts("Obstacle")
+  #   end
+
+  #   robot=move(robot)
+  #   %ToyRobot.Position{x: x, y: _y, facing: _facing} = robot
+  #   move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
+  # end
 
   def face(robot,y,goal_y) when goal_y<y do
     %ToyRobot.Position{robot | facing: :south}
@@ -114,20 +156,36 @@ defmodule ToyRobot do
     %ToyRobot.Position{robot | facing: :north}
   end
 
-  def turn(robot,x,goal_x,facing) when goal_x<x and facing==:north do
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_x<x and facing==:north do
     left(robot)
   end
 
-  def turn(robot,x,goal_x,facing) when goal_x>x and facing==:north do
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_x>x and facing==:north do
     right(robot)
   end
 
-  def turn(robot,x,goal_x,facing) when goal_x<x and facing==:south do
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_x<x and facing==:south do
     right(robot)
   end
 
-  def turn(robot,x,goal_x,facing) when goal_x>x and facing==:south do
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_x>x and facing==:south do
     left(robot)
+  end
+
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_y<y and facing==:east do
+    right(robot)
+  end
+
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_y>y and facing==:east do
+    left(robot)
+  end
+
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_y<y and facing==:west do
+    left(robot)
+  end
+
+  def turn(robot,x,y,goal_x,goal_y,facing) when goal_y>y and facing==:west do
+    right(robot)
   end
 
   @doc """
@@ -138,7 +196,7 @@ defmodule ToyRobot do
   """
   def send_robot_status(%ToyRobot.Position{x: x, y: y, facing: facing} = _robot, cli_proc_name) do
     send(cli_proc_name, {:toyrobot_status, x, y, facing})
-    # IO.puts("Sent by Toy Robot Client: #{x}, #{y}, #{facing}")
+    #IO.puts("Sent by Toy Robot Client: #{x}, #{y}, #{facing}")
     listen_from_server()
   end
 
@@ -149,6 +207,7 @@ defmodule ToyRobot do
   def listen_from_server() do
     receive do
       {:obstacle_presence, is_obs_ahead} -> is_obs_ahead
+      #IO.puts("#{is_obs_ahead}")
     end
   end
 
