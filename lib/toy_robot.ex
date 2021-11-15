@@ -51,9 +51,7 @@ defmodule ToyRobot do
   Provide START position to the robot as given location of (x, y, facing) and place it.
   """
   def start(x, y, facing) do
-    ###########################
-    ## complete this funcion ##
-    ###########################
+    place(x,y,facing)
   end
 
   def stop(_robot, goal_x, goal_y, _cli_proc_name) when goal_x < 1 or goal_y < :a or goal_x > @table_top_x or goal_y > @table_top_y do
@@ -67,9 +65,69 @@ defmodule ToyRobot do
   indication for the presence of obstacle ahead of robot's current position and facing.
   """
   def stop(robot, goal_x, goal_y, cli_proc_name) do
-    ###########################
-    ## complete this funcion ##
-    ###########################
+    %ToyRobot.Position{x: x, y: y, facing: facing} = robot
+
+    robot=face(robot,y,goal_y)
+
+    robot=move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+    %ToyRobot.Position{x: x, y: y, facing: facing} = robot
+
+    robot=turn(robot,x,goal_x,facing)
+    %ToyRobot.Position{x: x, y: y, facing: facing} = robot
+
+    robot=move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
+    %ToyRobot.Position{facing: facing, x: x, y: y} = robot
+
+    {:ok,robot}
+  end
+
+  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name) when y==goal_y do
+    send_robot_status(robot,cli_proc_name)
+    robot
+  end
+
+  def move_v(x,y,goal_x,goal_y,robot,cli_proc_name) do
+    send_robot_status(robot,cli_proc_name)
+    robot=move(robot)
+    %ToyRobot.Position{x: _x, y: y, facing: _facing} = robot
+    move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+  end
+
+  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name) when x==goal_x do
+    send_robot_status(robot,cli_proc_name)
+    robot
+  end
+
+  def move_h(x,y,goal_x,goal_y,robot,cli_proc_name) do
+    IO.puts("#{send_robot_status(robot,cli_proc_name)}")
+      # move_v(x,y,goal_x,goal_y,robot,cli_proc_name)
+    robot=move(robot)
+    %ToyRobot.Position{x: x, y: _y, facing: _facing} = robot
+    move_h(x,y,goal_x,goal_y,robot,cli_proc_name)
+  end
+
+  def face(robot,y,goal_y) when goal_y<y do
+    %ToyRobot.Position{robot | facing: :south}
+  end
+
+  def face(robot,y,goal_y) when goal_y>y do
+    %ToyRobot.Position{robot | facing: :north}
+  end
+
+  def turn(robot,x,goal_x,facing) when goal_x<x and facing==:north do
+    left(robot)
+  end
+
+  def turn(robot,x,goal_x,facing) when goal_x>x and facing==:north do
+    right(robot)
+  end
+
+  def turn(robot,x,goal_x,facing) when goal_x<x and facing==:south do
+    right(robot)
+  end
+
+  def turn(robot,x,goal_x,facing) when goal_x>x and facing==:south do
+    left(robot)
   end
 
   @doc """
